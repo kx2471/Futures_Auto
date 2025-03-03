@@ -53,7 +53,7 @@ class BinanceWebSocket:
             }
 
             self.save_to_json(formatted_data)
-            print(f"새로운 데이터 저장됨: {formatted_data}")
+            print(f"새로운 데이터 저장됨: {json.dumps(formatted_data, ident=4)}")
 
     def on_error(self, ws, error):
         print(f"WebSocket Error: {error}")
@@ -92,12 +92,3 @@ class BinanceWebSocket:
         if self.thread:
             self.thread.join()
 
-
-
-if __name__ == "__main__":
-    ws_client = BinanceWebSocket()
-    ws_client.start()
-
-    # 메인 스레드가 종료되지 않도록 유지
-    while True:
-        time.sleep(1)
