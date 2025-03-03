@@ -6,47 +6,7 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 import mplfinance as mpf
 import os
-from dotenv import load_dotenv
-load_dotenv()
 
-API_KEY = os.getenv("BIN_API_KEY")
-API_SECRET = os.getenv("BIN_SEC_KEY")
-
-#바이낸스 데이터 가져오기
-def get_binance_data():
-    client = Client(API_KEY, API_SECRET)
-
-    # 1분봉 데이터 가져오기
-    symbol = 'BTCUSDT'
-    interval = Client.KLINE_INTERVAL_1MINUTE
-    limit = 500
-
-    # 데이터 요청
-    klines = client.get_historical_klines(symbol, interval, limit=limit)
-
-    # 데이터를 읽기 쉽게 수정 (키 추가)
-    formatted_data = []
-    for kline in klines:
-        formatted_data.append({
-            "timestamp": kline[0],
-            "open": kline[1],
-            "high": kline[2],
-            "low": kline[3],
-            "close": kline[4],
-            "volume": kline[5],
-            "close_time": kline[6],
-            # "quote_asset_volume": kline[7],  # 제외
-            "number_of_trades": kline[8],
-            # "taker_buy_base_asset_volume": kline[9],  # 제외
-            # "taker_buy_quote_asset_volume": kline[10],  # 제외
-            # "ignore": kline[11]  # 제외
-        })
-
-    # JSON 형식으로 파일 저장 (읽기 쉽게 들여쓰기 적용)
-    with open('BTC_data.json', 'w') as f:
-        json.dump(formatted_data, f, indent=4)
-
-    print("데이터가 'BTC_data.json' 파일로 저장되었습니다.")
 
 # 데이터 로드 함수
 def load_data():
@@ -112,8 +72,6 @@ def get_vwap(data):
 
 # 지표 계산 예시
 if __name__ == "__main__":
-    #데이터 갱신
-    get_binance_data()
     # 데이터 로드
     data = load_data()
 
@@ -132,5 +90,7 @@ if __name__ == "__main__":
     print(f"EMA: {ema.tail()}")
     print(f"RSI: {rsi.tail()}")
     print(f"MACD: {macd.tail()}")
-    print(f"Signal: {signal.tail()}")
+    print(f"bbUP: {upper_band.tail()}")
+    print(f"bbmid: {sma_bb.tail()}")
+    print(f"bbDown: {lower_band.tail()}")
     print(f"VWAP: {vwap.tail()}")
