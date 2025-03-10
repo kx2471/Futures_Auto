@@ -1,101 +1,110 @@
-from binance.client import Client
-import numpy as np
-import pandas as pd
 import json
-import matplotlib.pyplot as plt
-import matplotlib.dates as mdates
-import mplfinance as mpf
-import os
+import time
+from datetime import datetime, timezone, timedelta
+import pandas as pd
+import numpy as np
+
+class TradingIndicators:
+    def __init__(self, data_file):
+        self.data_file = data_file
+
+    def load_data(self):
+        with open(self.data_file, 'r') as f:
+            data = json.load(f)
+        return pd.DataFrame(data)
+
+    def get_sma(self, data, window=14):
+        return data['close'].astype(float).rolling(window=window).mean()
+
+    def get_wma(self, data, window=14):
+        weights = np.arange(1, window + 1)
+        return data['close'].astype(float).rolling(window=window).apply(lambda prices: np.dot(prices, weights) / weights.sum(), raw=True)
+
+    def get_ema(self, data, window=14):
+        return data['close'].astype(float).ewm(span=window, adjust=False).mean()
+
+    def get_rsi(self, data, window=14):
+        delta = data['close'].astype(float).diff()
+        gain = delta.where(delta > 0, 0).rolling(window=window).mean()
+        loss = -delta.where(delta < 0, 0).rolling(window=window).mean()
+
+        rs = gain / loss
+        rsi = 100 - (100 / (1 + rs))
+        return rsi
+
+    def get_macd(self, data, fast=12, slow=26, signal=9):
+        fast_ema = self.get_ema(data, fast)
+        slow_ema = self.get_ema(data, slow)
+        macd = fast_ema - slow_ema
+        signal_line = self.get_ema(data, signal)
+        histogram = macd - signal_line
+        return macd, signal_line, histogram
+
+    def get_bb(self, data, window=20, num_std_dev=2):
+        sma = self.get_sma(data, window)
+        rolling_std = data['close'].rolling(window=window).std()
+
+        upper_band = sma + (rolling_std * num_std_dev)
+        lower_band = sma - (rolling_std * num_std_dev)
+
+        upper_band = upper_band.bfill()
+        lower_band = lower_band.bfill()
+        sma = sma.bfill()
+
+        return upper_band, sma, lower_band
+
+    def get_vwap(self, data):
+        price_volume = data['close'].astype(float) * data['volume'].astype(float)
+        vwap = price_volume.cumsum() / data['volume'].astype(float).cumsum()
+        return vwap
+
+    def save_indicators(self, data):
+        # 지표 계산
+        sma = self.get_sma(data)
+        wma = self.get_wma(data)
+        ema = self.get_ema(data)
+        rsi = self.get_rsi(data)
+        macd, signal, histogram = self.get_macd(data)
+        upper_band, sma_bb, lower_band = self.get_bb(data)
+        vwap = self.get_vwap(data)
+
+        # 현재 UTC 시간을 가져오기  
+        timestamp = datetime.now(timezone.utc)
+        kst_time = timestamp + timedelta(hours=9)  # 한국시간으로 변환
+        formatted_timestamp = kst_time.strftime('%Y-%m-%d %H:%M:%S')
 
 
-# 데이터 로드 함수
-def load_data():
-    with open('BTC_data.json', 'r') as f:
-        data = json.load(f)
-    return pd.DataFrame(data)
 
-# SMA 계산
-def get_sma(data, window=14):
-    return data['close'].astype(float).rolling(window=window).mean()
+        # 지표 데이터 저장
+        indicators = {
+            "timestamp": formatted_timestamp,
+            "sma": sma.tail(15).tolist(),
+            "wma": wma.tail(15).tolist(),
+            "ema": ema.tail(15).tolist(),
+            "rsi": rsi.tail(15).tolist(),
+            "macd": macd.tail(15).tolist(),
+            "signal": signal.tail(15).tolist(),
+            "histogram": histogram.tail(15).tolist(),
+            "bb_upper": upper_band.tail(15).tolist(),
+            "bb_sma": sma_bb.tail(15).tolist(),
+            "bb_lower": lower_band.tail(15).tolist(),
+            "vwap": vwap.tail(15).tolist()
+        }
 
-# WMA 계산
-def get_wma(data, window=14):
-    weights = np.arange(1, window + 1)
-    return data['close'].astype(float).rolling(window=window).apply(lambda prices: np.dot(prices, weights) / weights.sum(), raw=True)
+        # JSON 파일에 저장
+        with open('Technical_indicators.json', 'w') as f:
+            json.dump(indicators, f, indent=4)
 
-# EMA 계산
-def get_ema(data, window=14):
-    return data['close'].astype(float).ewm(span=window, adjust=False).mean()
+        print("Technical indicators saved to Technical_indicators.json")
 
-# RSI 계산
-def get_rsi(data, window=14):
-    delta = data['close'].astype(float).diff()
-    gain = delta.where(delta > 0, 0).rolling(window=window).mean()
-    loss = -delta.where(delta < 0, 0).rolling(window=window).mean()
+    def run(self):
+        while True:
+            # 데이터 로드
+            data = self.load_data()
 
-    rs = gain / loss
-    rsi = 100 - (100 / (1 + rs))
-    return rsi
+            # 지표 저장
+            self.save_indicators(data)
 
-# MACD 계산
-def get_macd(data, fast=12, slow=26, signal=9):
-    fast_ema = get_ema(data, fast)
-    slow_ema = get_ema(data, slow)
-    macd = fast_ema - slow_ema
-    signal_line = get_ema(data, signal)
-    histogram = macd - signal_line
-    return macd, signal_line, histogram
+            # 1분 대기
+            time.sleep(60)
 
-# 볼린저밴드 계산
-def get_bb(data, window=20, num_std_dev=2):
-    # 먼저 단순이동평균(SMA)을 계산합니다.
-    sma = get_sma(data, window)
-    
-    # 표준편차를 계산합니다. (rolling 함수는 처음 몇 구간에서 NaN을 생성할 수 있습니다)
-    rolling_std = data['close'].astype(float).rolling(window=window).std()
-
-    # 상한선과 하한선을 계산합니다.
-    upper_band = sma + (rolling_std * num_std_dev)
-    lower_band = sma - (rolling_std * num_std_dev)
-
-    # NaN을 처리하는 방법
-    # 여기서는 NaN이 포함된 구간을 제거하지 않고, NaN이 있을 경우 그대로 반환
-    # 또는 필요한 경우 처음 몇 구간은 NaN을 제외한 계산으로 추가 로직을 넣을 수 있습니다.
-    upper_band = upper_band.fillna(method='bfill')  # backward fill로 NaN을 채우기
-    lower_band = lower_band.fillna(method='bfill')  # backward fill로 NaN을 채우기
-    sma = sma.fillna(method='bfill')  # backward fill로 NaN을 채우기
-
-    return upper_band, sma, lower_band
-
-
-
-# VWAP 계산
-def get_vwap(data):
-    price_volume = data['close'].astype(float) * data['volume'].astype(float)
-    vwap = price_volume.cumsum() / data['volume'].astype(float).cumsum()
-    return vwap
-
-# 지표 계산 예시
-if __name__ == "__main__":
-    # 데이터 로드
-    data = load_data()
-
-    # 지표 계산
-    sma = get_sma(data)
-    wma = get_wma(data)
-    ema = get_ema(data)
-    rsi = get_rsi(data)
-    macd, signal, histogram = get_macd(data)
-    upper_band, sma_bb, lower_band = get_bb(data)
-    vwap = get_vwap(data)
-
-    # 결과 출력 (일부 지표 예시)
-    print(f"SMA: {sma.tail()}")
-    print(f"WMA: {wma.tail()}")
-    print(f"EMA: {ema.tail()}")
-    print(f"RSI: {rsi.tail()}")
-    print(f"MACD: {macd.tail()}")
-    print(f"bbUP: {upper_band.tail()}")
-    print(f"bbmid: {sma_bb.tail()}")
-    print(f"bbDown: {lower_band.tail()}")
-    print(f"VWAP: {vwap.tail()}")
