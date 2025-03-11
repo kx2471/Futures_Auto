@@ -3,6 +3,7 @@ import time
 from datetime import datetime, timezone, timedelta
 import pandas as pd
 import numpy as np
+import os
 
 class TradingIndicators:
     def __init__(self, data_file):
@@ -91,11 +92,13 @@ class TradingIndicators:
             "vwap": vwap.tail(15).tolist()
         }
 
+        if not os.path.exists('Technical_indicators.json'):
+            print("File not found. Creating new file...")
         # JSON 파일에 저장
         with open('Technical_indicators.json', 'w') as f:
             json.dump(indicators, f, indent=4)
 
-        print("Technical indicators saved to Technical_indicators.json")
+        print("Technical indicators saved to Technical_indijscators.json")
 
     def run(self):
         while True:
