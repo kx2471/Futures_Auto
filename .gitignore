@@ -174,6 +174,8 @@ cython_debug/
 .pypirc
 
 
-#JSON파일
+# JSON data files
+data.json
+*.tmp.json
+data/
 *.json
-
