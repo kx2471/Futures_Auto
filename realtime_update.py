@@ -46,7 +46,7 @@ class BinanceWebSocket_realtimePrice:
             if not self.data_buffer:
                 print("데이터 버퍼가 비어 있습니다.")
                 return
-
+            
             first_data = self.data_buffer[0]
             timestamp = datetime.fromtimestamp(first_data['timestamp'] / 1000, tz=timezone.utc) + timedelta(hours=9)
             price = first_data['price']
@@ -59,11 +59,16 @@ class BinanceWebSocket_realtimePrice:
             self.save_to_json(formatted_data)
             print(f"1초 데이터 저장됨: {json.dumps(formatted_data, indent=4)}")
 
-            self.data_buffer = []
+            # 데이터 버퍼 초기화
+            self.data_buffer.clear()
 
-        # 타이머 반복 실행 (1초마다 실행)
+        # 메모리 누수 방지를 위한 타이머 초기화
+        if self.timer:
+            self.timer.cancel()
+
         self.timer = threading.Timer(1, self.process_data)
         self.timer.start()
+
 
     def on_message(self, ws, message):
         #print(f"메시지 수신됨: {message[:100]}...")  # 수신된 메시지 일부 로그 출력
@@ -81,14 +86,16 @@ class BinanceWebSocket_realtimePrice:
 
     def on_close(self, ws, close_status_code, close_msg):
         print("웹소켓 연결 종료")
-        # 기존 타이머 정리
         if self.timer:
             self.timer.cancel()
 
-        # 일정 시간 후 재연결 시도
         print("5초 후 재연결 시도...")
         time.sleep(5)
+
+        # 명확하게 새로운 객체 생성 후 연결
+        self.ws = None
         self.start()
+
 
     def on_open(self, ws):
         print("웹소켓 연결 성공")
@@ -103,10 +110,10 @@ class BinanceWebSocket_realtimePrice:
         )
         self.ws.on_open = self.on_open
         try:
-            self.ws.run_forever()
+            self.ws.run_forever(ping_interval=10, ping_timeout=5)
         except Exception as e:
             print(f"웹소켓 연결 오류: {e}")
-            self.on_close(self.ws, None, None)  # 연결 종료 후 재연결 시도
+            self.on_close(self.ws, None, None)
 
     def start(self):
         # 웹소켓 백그라운드 실행
