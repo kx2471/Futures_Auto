@@ -69,9 +69,9 @@ def get_final_signal():
     signal_2 = strategy_2(data, current_price, prev_price)
 
     # 매매 신호 결정
-    if signal_1 == "long" or signal_2 == "long":
+    if (signal_1 == "long" and (signal_2 == "long" or "hold")) or ((signal_1 == "long" or "hold") and signal_2 == "long"):
         final_signal = "LONG"
-    elif signal_1 == "short" or signal_2 == "short":
+    elif (signal_1 == "short" and (signal_2 == "short" or "hold")) or ((signal_1 == "short" or "hold") and signal_2 == "short"):
         final_signal = "SHORT"
     else:
         final_signal = "HOLD"
