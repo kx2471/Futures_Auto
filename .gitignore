@@ -175,5 +175,5 @@ cython_debug/
 
 
 #JSON파일
-.json
+*.json
 
