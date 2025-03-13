@@ -31,34 +31,38 @@ class BinanceWebSocket_ohlcv:
         # 새로운 1분 캔들봉 데이터를 data에 추가
         data.append(new_data)
 
+        if len(data) > 500:
+            data = data[-500:] 
+
         with open(self.data_file, "w", encoding="utf-8") as file:
             json.dump(data, file, indent=4)
 
     def process_data(self):
-        """ 1초마다 데이터를 처리하여 저장 """
+        """ 10초마다 데이터를 처리하여 저장 """
         with self.lock:
             if not self.data_buffer:
                 return
             
-            # 현재 시간을 기준으로 1분 캔들봉을 생성
-            current_time = datetime.now(timezone.utc)  # UTC 시간 사용
-            current_minute = current_time.replace(second=0, microsecond=0)
+            # 현재 시간을 기준으로 10초 단위로 정렬 (0, 10, 20, 30, 40, 50)
+            current_time = datetime.now(timezone.utc)
+            current_period = current_time.replace(second=(current_time.second // 10) * 10, microsecond=0)
 
-            if self.last_candle_time and self.last_candle_time != current_minute:
-                # 새 1분이 시작되었으므로 이전 1분 캔들봉을 저장
+            if self.last_candle_time is None or (current_period != self.last_candle_time):
+                # 새 10초가 시작되었으면 캔들 저장
                 if self.candle_buffer:
                     ohlcv = self.create_candle(self.candle_buffer)
-                    print(f"1분 캔들봉: {ohlcv}")
+                    print(f"10초 캔들봉: {ohlcv}")
                     self.save_to_json(ohlcv)
-                
+
                 # 버퍼 초기화
                 self.candle_buffer = []
-                
-            self.last_candle_time = current_minute
+                self.last_candle_time = current_period
 
-        # 1초마다 반복 실행
-        self.timer = threading.Timer(1, self.process_data)
+        # 10초마다 반복 실행
+        self.timer = threading.Timer(10, self.process_data)
         self.timer.start()
+
+
 
     def create_candle(self, trade_data):
         """ 거래 데이터를 바탕으로 1분 캔들봉 생성 """

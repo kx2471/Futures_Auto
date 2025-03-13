@@ -109,5 +109,5 @@ class TradingIndicators:
             self.save_indicators(data)
 
             # 1분 대기
-            time.sleep(60)
+            time.sleep(10)
 

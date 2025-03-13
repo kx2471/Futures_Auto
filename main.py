@@ -11,8 +11,8 @@ def load_data():
 def get_realtime_price(file_path):
     with open(file_path, 'r') as file:
         data = json.load(file)
-    latest_price = data[-1]['price']  # 가장 최신 값 사용
-    prev_price = data[-2]['price']  # 두 번째 최신 값 사용
+    latest_price = data[-1]['close']  # 가장 최신 값 사용
+    prev_price = data[-2]['close']  # 두 번째 최신 값 사용
     return latest_price, prev_price
 
 # 📌 전략 1 로직
@@ -62,7 +62,7 @@ def get_final_signal():
 
     data = load_data()
     # 실시간 가격 가져오기
-    current_price, prev_price = get_realtime_price("BTC_realtime_data.json")
+    current_price, prev_price = get_realtime_price("1min_BTC_OHLCV.json")
 
     # 전략 1과 전략 2에서 각각 신호를 받아옴
     signal_1 = strategy_1(data, current_price)
@@ -84,5 +84,5 @@ if __name__ == "__main__":
     while True:
         final_signal = get_final_signal()
         print(f"최종 매매 신호: {final_signal}")
-        time.sleep(30)
+        time.sleep(10)
 
