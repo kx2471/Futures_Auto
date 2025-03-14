@@ -1,5 +1,104 @@
 import json
 import time
+from binance.client import Client
+from dotenv import load_dotenv
+import os
+
+# .env 파일 로드
+load_dotenv()
+
+# 바이낸스 API 키 설정
+BINANCE_API_KEY = os.getenv("BIN_API_KEY")
+BINANCE_API_SECRET = os.getenv("BIN_SEC_KEY")
+
+client = Client(BINANCE_API_KEY, BINANCE_API_SECRET)
+
+
+
+def open_Position():
+    # 현재 잔고 가져오기
+    balance = float([x for x in client.futures_account_balance() if x['asset'] == 'USDT'][0]['balance'])
+    
+    # 사용할 금액 = 잔고의 90%
+    amount_to_use = balance * 0.9
+    
+    # 현재 가격 가져오기
+    current_price = float(client.futures_symbol_ticker(symbol='BTCUSDT')['price'])
+    
+    # 수량 계산 (소수점 3자리로 반올림 → 최소 거래 단위 맞춤)
+    quantity = round(amount_to_use / current_price, 3)
+
+    # 레버리지
+    leverage = 25
+    client.futures_change_leverage(symbol='BTCUSDT', leverage=leverage)
+
+    #파이널시그널 얻어오기
+    final_signal = get_final_signal()
+
+    if final_signal == "LONG":
+        order = client.futures_create_order(
+            symbol='BTCUSDT',
+            side='BUY',
+            type='MARKET',
+            quantity=quantity
+        )
+        print(f"✅ LONG 진입: {quantity} BTC at {current_price} USDT")
+        return order
+    
+    elif final_signal == "SHORT":
+        order = client.futures_create_order(
+            symbol='BTCUSDT',
+            side='SELL',
+            type='MARKET',
+            quantity=quantity
+        )
+        print(f"✅ Short 진입: {quantity} BTC at {current_price} USDT")
+        return order
+     
+    else:
+        print(f"🟡 HOLD 상태 유지")
+
+
+
+def close_Position():
+    return
+
+
+def get_unrealized_profit():
+    # 현재 포지션 정보 가져오기
+    positions = client.futures_position_information()
+    
+    # BTCUSDT 포지션 찾기
+    btc_position = next((pos for pos in positions if pos['symbol'] == 'BTCUSDT'), None)
+
+    if btc_position:
+        # 포지션의 미실현 손익
+        unrealized_profit = float(btc_position['unrealizedProfit'])
+        
+        # 현재 포지션 수량
+        position_size = float(btc_position['positionAmt'])
+        
+        if position_size != 0:
+            # 손실률 계산: 손익 / 포지션 진입 가치
+            entry_price = float(btc_position['entryPrice'])
+            current_price = float(client.futures_symbol_ticker(symbol='BTCUSDT')['price'])
+            entry_value = entry_price * position_size
+
+            # 손실률 계산
+            loss_rate = (unrealized_profit / entry_value) * 100  # %로 계산
+            print(f"현재 손실률: {loss_rate:.2f}%")
+            return loss_rate
+        else:
+            print("포지션 없음")
+            return 0
+    else:
+        print("BTCUSDT 포지션 없음")
+        return 0
+
+
+
+
+
 
 # 📌 파일 로드 함수
 def load_data():
