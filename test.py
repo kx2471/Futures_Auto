@@ -1,6 +1,7 @@
 from binance.client import Client
 from dotenv import load_dotenv
 import os
+import time
 
 # .env 파일 로드
 load_dotenv()
@@ -115,16 +116,89 @@ def get_unrealized_profit():
         print("BTCUSDT 포지션 없음")
         return 0
 
+def close_position():
+    try:
+        # 현재 포지션 정보 가져오기
+        positions = client.futures_position_information(symbol='BTCUSDT')
+        
+        # BTCUSDT 포지션 찾기
+        btc_position = next((pos for pos in positions if pos['symbol'] == 'BTCUSDT'), None)
+
+        if btc_position:
+            # 포지션의 미실현 손익
+            unrealized_profit = float(btc_position['unRealizedProfit'])
+            
+            # 현재 포지션 수량
+            position_size = float(btc_position['positionAmt'])
+            
+            # 레버리지 정보 가져오기
+            leverage = 25
+
+            if position_size != 0:
+                # 포지션 진입 가격
+                entry_price = float(btc_position['entryPrice'])
+                
+                # 현재 가격 가져오기
+                current_price = float(client.futures_symbol_ticker(symbol='BTCUSDT')['price'])
+                
+                # 레버리지 적용 후 실제 투자 금액
+                entry_value = entry_price * position_size / leverage
+                
+                # 손익 비율 계산: (미실현 손익 / 실제 투자 금액) * 100
+                if entry_value == 0:
+                    print("⚠️ 진입 가격이 0입니다. 손익 비율 계산을 할 수 없습니다.")
+                    return
+                
+                if position_size > 0:  # LONG 포지션
+                    profit_rate = (unrealized_profit / entry_value) * 100
+                else:  # SHORT 포지션
+                    profit_rate = (-unrealized_profit / entry_value) * 100  # SHORT은 반대로 계산
+                
+                print(f"현재 손익: {unrealized_profit} USDT, 손익 비율: {profit_rate:.2f}%")
+                
+                # +5% 이상 또는 -2.5% 이하일 경우 포지션 클로즈
+                if profit_rate >= 5:
+                    print("📈 손익 +5% 이상: 포지션을 클로즈합니다.")
+                    # 포지션 클로즈 (매도)
+                    order = client.futures_create_order(
+                        symbol='BTCUSDT',
+                        side='SELL' if position_size > 0 else 'BUY',  # LONG이면 'SELL', SHORT이면 'BUY'
+                        type='MARKET',
+                        quantity=abs(position_size)
+                    )
+                    print(f"✅ 포지션 클로즈: {abs(position_size)} BTC")
+                    return order
+                elif profit_rate <= -2.5:
+                    print("📉 손익 -2.5% 이하: 포지션을 클로즈합니다.")
+                    # 포지션 클로즈 (매도)
+                    order = client.futures_create_order(
+                        symbol='BTCUSDT',
+                        side='SELL' if position_size > 0 else 'BUY',  # LONG이면 'SELL', SHORT이면 'BUY'
+                        type='MARKET',
+                        quantity=abs(position_size)
+                    )
+                    print(f"✅ 포지션 클로즈: {abs(position_size)} BTC")
+                    return order
+                else:
+                    print("🟡 손익 비율이 클로즈 조건을 만족하지 않습니다. 포지션을 유지합니다.")
+            else:
+                print("포지션이 없습니다.")
+        else:
+            print("BTCUSDT 포지션 없음")
+
+    except Exception as e:
+        print(f"⚠️ 오류 발생: {e}")
+
+
+
 
 if __name__ == "__main__":
     get_futures_account_info()
     open_Position("SHORT")
-
-    positions = client.futures_position_information()
-        
-        # BTCUSDT 포지션 찾기
+    positions = client.futures_position_information(symbol='BTCUSDT')
     btc_position = next((pos for pos in positions if pos['symbol'] == 'BTCUSDT'), None)
-
-    if btc_position:
-        # 포지션의 모든 정보를 출력해 봄 (디버깅 용)
-        print("포지션 정보:", btc_position)
+    position_size = float(btc_position['positionAmt'])
+    print(btc_position)
+    while position_size != 0:
+        close_position()
+        time.sleep(10)
