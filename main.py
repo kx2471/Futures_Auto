@@ -26,7 +26,7 @@ def open_Position():
     current_price = float(client.futures_symbol_ticker(symbol='BTCUSDT')['price'])
     
     # 레버리지
-    leverage = 25
+    leverage = 75
     client.futures_change_leverage(symbol='BTCUSDT', leverage=leverage)
 
     # 레버리지를 적용한 금액으로 수량 계산 (소수점 3자리로 반올림 → 최소 거래 단위 맞춤)
@@ -85,7 +85,7 @@ def close_position():
             position_size = float(btc_position['positionAmt'])
             
             # 레버리지 정보 가져오기
-            leverage = 25
+            leverage = 75
 
             if position_size != 0:
                 # 포지션 진입 가격
@@ -106,11 +106,13 @@ def close_position():
                     profit_rate = (unrealized_profit / entry_value) * 100
                 else:  # SHORT 포지션
                     profit_rate = (-unrealized_profit / entry_value) * 100  # SHORT은 반대로 계산
+
+                final_signal = get_final_signal()
                 
                 print(f"현재 손익: {unrealized_profit} USDT, 손익 비율: {profit_rate:.2f}%")
                 
                 # +5% 이상 또는 -2.5% 이하일 경우 포지션 클로즈
-                if profit_rate >= 5:
+                if profit_rate >= 5 :
                     print("📈 손익 +5% 이상: 포지션을 클로즈합니다.")
                     # 포지션 클로즈 (매도)
                     order = client.futures_create_order(
@@ -121,7 +123,20 @@ def close_position():
                     )
                     print(f"✅ 포지션 클로즈: {abs(position_size)} BTC")
                     return order
-                elif profit_rate <= -2.5:
+                
+                elif (position_size > 0 and final_signal == "SHORT") or (position_size < 0 and final_signal == "LONG"):
+                    print("📈 현재 포지션과 반대 진입명령이 나왔습니다. : 포지션을 클로즈합니다.")
+                    # 포지션 클로즈 (매도)
+                    order = client.futures_create_order(
+                        symbol='BTCUSDT',
+                        side='SELL' if position_size > 0 else 'BUY',  # LONG이면 'SELL', SHORT이면 'BUY'
+                        type='MARKET',
+                        quantity=abs(position_size)
+                    )
+                    print(f"✅ 포지션 클로즈: {abs(position_size)} BTC")
+                    return order
+
+                elif profit_rate <= -2.5 :
                     print("📉 손익 -2.5% 이하: 포지션을 클로즈합니다.")
                     # 포지션 클로즈 (매도)
                     order = client.futures_create_order(
