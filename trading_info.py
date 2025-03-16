@@ -37,9 +37,7 @@ class TradingIndicators:
         fast_ema = self.get_ema(data, fast)
         slow_ema = self.get_ema(data, slow)
         macd = fast_ema - slow_ema
-        signal_line = self.get_ema(data, signal)
-        histogram = macd - signal_line
-        return macd, signal_line, histogram
+        return macd
 
     def get_bb(self, data, window=20, num_std_dev=2):
         sma = self.get_sma(data, window)
@@ -65,7 +63,7 @@ class TradingIndicators:
         wma = self.get_wma(data)
         ema = self.get_ema(data)
         rsi = self.get_rsi(data)
-        macd, signal, histogram = self.get_macd(data)
+        macd = self.get_macd(data)
         upper_band, sma_bb, lower_band = self.get_bb(data)
         vwap = self.get_vwap(data)
 
@@ -84,8 +82,6 @@ class TradingIndicators:
             "ema": ema.tail(15).tolist(),
             "rsi": rsi.tail(15).tolist(),
             "macd": macd.tail(15).tolist(),
-            "signal": signal.tail(15).tolist(),
-            "histogram": histogram.tail(15).tolist(),
             "bb_upper": upper_band.tail(15).tolist(),
             "bb_sma": sma_bb.tail(15).tolist(),
             "bb_lower": lower_band.tail(15).tolist(),

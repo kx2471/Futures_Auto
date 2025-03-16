@@ -112,8 +112,8 @@ def close_position():
                 print(f"현재 손익: {unrealized_profit} USDT, 손익 비율: {profit_rate:.2f}%")
                 
                 # +5% 이상 또는 -2.5% 이하일 경우 포지션 클로즈
-                if profit_rate >= 5 :
-                    print("📈 손익 +5% 이상: 포지션을 클로즈합니다.")
+                if profit_rate >= 11.8 :
+                    print("📈 손익 +11.8% 이상: 포지션을 클로즈합니다.")
                     # 포지션 클로즈 (매도)
                     order = client.futures_create_order(
                         symbol='BTCUSDT',
@@ -136,8 +136,8 @@ def close_position():
                     print(f"✅ 포지션 클로즈: {abs(position_size)} BTC")
                     return order
 
-                elif profit_rate <= -2.5 :
-                    print("📉 손익 -2.5% 이하: 포지션을 클로즈합니다.")
+                elif profit_rate <= -9.25 :
+                    print("📉 손익 -9.25% 이하: 포지션을 클로즈합니다.")
                     # 포지션 클로즈 (매도)
                     order = client.futures_create_order(
                         symbol='BTCUSDT',
@@ -183,18 +183,24 @@ def get_realtime_price(file_path):
 def strategy_1(data, current_price):
     rsi = data['rsi'][0]
     sma = data['sma'][0]
+    macd = data['macd'][0]
+
+    macd_last_15 = data['macd'][-15:]
+    signal_line = sum(macd_last_15) / len(macd_last_15)
+    histogram = macd - signal_line
+    
 
     signal = None
 
-    if (rsi <= 40)  and (current_price > sma) :
+    if (rsi <= 40)  and (histogram > 0) :
         signal = "long"
         
-    elif (rsi >= 60)  and (current_price < sma) :
+    elif (rsi >= 60)  and (histogram < 0) :
         signal = "short"
     else:
         signal = "hold"
 
-    print(f"[STRATEGY 1] RSI: {rsi}, SMA: {sma}, Current Price: {current_price}")
+    print(f"[STRATEGY 1] RSI: {rsi}, Histogram: {histogram}, Current Price: {current_price}")
     print(f"전략1: {signal}")
 
     return signal
@@ -250,23 +256,21 @@ def check_and_execute():
             positions = client.futures_position_information(symbol='BTCUSDT')
             btc_position = next((pos for pos in positions if pos['symbol'] == 'BTCUSDT'), None)
             
-            
             # 포지션이 없으면 open_Position 호출
             if btc_position is None or float(btc_position['positionAmt']) == 0:
                 print("포지션 없음, open_Position 실행 중...")
                 open_Position()
+                time.sleep(5)  # 포지션이 없을 때는 5초 대기
 
-                # 포지션이 있으면 close_Position 호출
+            # 포지션이 있으면 close_Position 호출
             else:
                 print("포지션 있음, close_Position 실행 중...")
                 close_position()
-
-                # 10초마다 확인
-            time.sleep(10)
+                time.sleep(2)  # 포지션이 있을 때는 2초 대기
 
         except Exception as e:
             print(f"⚠️ 오류 발생: {e}")
-            time.sleep(10)  # 오류 발생 시 10초 후 재시도
+            time.sleep(5)  # 오류 발생 시 5초 후 재시도
 
 # ✅ 테스트 실행 코드
 if __name__ == "__main__":
